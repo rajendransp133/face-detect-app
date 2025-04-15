@@ -7,10 +7,68 @@ import pandas as pd
 from imutils.video import WebcamVideoStream
 import imutils
 import cv2
+import time
 
-
+stream_active = False
+vs = None
 DB_NAME = "employee_data.db"
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+detected_faces = {}  # Dictionary to store detected faces
 
+
+
+def generate_reference_embeddings():
+    print("Generating reference embeddings...")
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print(f'Running on device: {device}')
+
+    mtcnn = MTCNN(
+        image_size=160, margin=0, min_face_size=20,
+        thresholds=[0.6, 0.7, 0.7], factor=0.709, prewhiten=True,
+        device=device
+    )
+    resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+    
+    employees = get_all_employees(DB_NAME)
+    
+    if not employees:
+        print("No employees found in database")
+        return None, None
+        
+    aligned_faces = []
+    names = []
+    
+    for employee in employees:
+        emp_id, name, photo_path, photo_path2 = employee
+        
+        for photo_path in [photo_path, photo_path2]:
+            try:
+                img = Image.open(photo_path)
+                x_aligned, prob = mtcnn(img, return_prob=True)
+                
+                if x_aligned is not None:
+                    print(f'Face detected for {name} with probability: {prob:.8f}')
+                    aligned_faces.append(x_aligned)
+                    names.append(name)
+                else:
+                    print(f'Warning: No face detected in {photo_path}')
+            except Exception as e:
+                print(f"Error processing {photo_path}: {e}")
+    
+    if not aligned_faces:
+        print("No faces were detected in any of the employee photos")
+        return None, None
+        
+    try:
+        aligned_batch = torch.stack(aligned_faces).to(device)
+        with torch.no_grad():
+            embeddings = resnet(aligned_batch).cpu()
+            
+        embeddings_tensor = torch.stack([e for e in embeddings]) if isinstance(embeddings, list) else embeddings
+        return embeddings, names
+    except Exception as e:
+        print(f"Error during embedding generation: {e}")
+        return None, None
 
 def cos_sim(a, b):
     if torch.is_tensor(a) and torch.is_tensor(b):
@@ -39,69 +97,14 @@ def cos(a, b):
     sim = torch.clamp(sim, minx, maxx) if torch.is_tensor(sim) else np.clip(sim, minx, maxx)
     return (sim - minx) / (maxx - minx)
 
-def generate_reference_embeddings():
-    print("Generating reference embeddings...")
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print(f'Running on device: {device}')
-
-    mtcnn = MTCNN(
-        image_size=160, margin=0, min_face_size=20,
-        thresholds=[0.6, 0.7, 0.7], factor=0.709, prewhiten=True,
-        device=device
-    )
-    resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
-    
-    employees = get_all_employees(DB_NAME)
-    
-    if not employees:
-        print("No employees found in database")
-        return None, None
-        
-    aligned_faces = []
-    names = []
-    
-    for employee in employees:
-        emp_id, name, photo_path, photo_path2 = employee
-        
-        for photo_path in [photo_path, photo_path2]:
-            full_path = photo_path
-            
-            try:
-                img = Image.open(full_path)
-                x_aligned, prob = mtcnn(img, return_prob=True)
-                
-                if x_aligned is not None:
-                    print(f'Face detected for {name} with probability: {prob:.8f}')
-                    aligned_faces.append(x_aligned)
-                    names.append(name)
-                else:
-                    print(f'Warning: No face detected in {photo_path}')
-            except Exception as e:
-                print(f"Error processing {photo_path}: {e}")
-    
-    if not aligned_faces:
-        print("No faces were detected in any of the employee photos")
-        return None, None
-        
-    try:
-        aligned_batch = torch.stack(aligned_faces).to(device)
-        with torch.no_grad():
-            embeddings = resnet(aligned_batch).cpu()
-            
-        embeddings_tensor = torch.stack([e for e in embeddings]) if isinstance(embeddings, list) else embeddings
-        dists = [[cos(e1, e2).item() for e2 in embeddings_tensor] for e1 in embeddings_tensor]
-        print("\nReference Embedding Similarity Matrix:")
-        print(pd.DataFrame(dists, columns=names, index=names))
-        
-        return embeddings, names
-    except Exception as e:
-        print(f"Error during embedding generation: {e}")
-        return None, None
-
 def verify_faces(current_embeddings, ref_embeddings, ref_names, detected_boxes, image_to_draw, threshold=0.85):
+    global detected_faces
+    
     if detected_boxes is None or current_embeddings is None or ref_embeddings is None or ref_names is None:
         return
-
+    
+    detected_faces = {}
+    
     for i, ref_emb in enumerate(ref_embeddings):
         ref_name = ref_names[i]
         for j, current_emb in enumerate(current_embeddings):
@@ -131,81 +134,126 @@ def verify_faces(current_embeddings, ref_embeddings, ref_names, detected_boxes, 
                             image_to_draw, display_text, (text_x, text_y),
                             cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1, cv2.LINE_AA
                         )
+                        
+                        # Store detected face information
+                        detected_faces[j] = {
+                            "name": ref_name,
+                            "similarity": dist.item(),
+                            "box": [int(x) for x in box]
+                        }
 
-                        print(f"Match found: {ref_name} (Similarity: {dist.item():.2f})")
-
-def run_face_recognition():
+def initialize_face_recognition():
+    global mtcnn, resnet, reference_embeddings, reference_names
+    
+    # Generate reference embeddings
     reference_embeddings, reference_names = generate_reference_embeddings()
-
+    
     if reference_embeddings is None or reference_names is None:
-        print("Exiting due to failure in reference embedding generation.")
-        return
-
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print(f'Running real-time detection on device: {device}')
-
+        print("Failed to generate reference embeddings.")
+        return False
+    
+    # Initialize models
     mtcnn = MTCNN(
         image_size=160, margin=0, min_face_size=20,
         thresholds=[0.6, 0.7, 0.7], factor=0.709, prewhiten=True,
         device=device, keep_all=True
     )
-
-    resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
-
-    vs = WebcamVideoStream(src=0).start()
-    if vs.stream is None or not vs.stream.isOpened():
-        print("Error: Could not open webcam.")
-        return
-    print("Camera on. Press 'Enter' to exit.")
     
-    while True:
-        im = vs.read()
-        if im is None:
-            print("Warning: Failed to grab frame from webcam.")
-            continue
+    resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+    
+    return True
 
-        im = cv2.flip(im, 1)
-
-        frame = imutils.resize(im, width=600)
-
-        img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
+def process_frame(frame):
+    global mtcnn, resnet, reference_embeddings, reference_names
+    
+    frame = cv2.flip(frame, 1)  # Mirror the frame
+    frame = imutils.resize(frame, width=640)  # Resize for web display
+    
+    img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    
+    with torch.no_grad():
+        boxes, probs = mtcnn.detect(img_pil)
+        img_cropped_batch = mtcnn(img_pil)
+    
+    frame_draw = frame.copy()
+    
+    if boxes is not None and img_cropped_batch is not None:
         with torch.no_grad():
-            boxes, probs = mtcnn.detect(img_pil)
-            img_cropped_batch = mtcnn(img_pil)
-
-        frame_draw = frame.copy()
-
-        if boxes is not None and img_cropped_batch is not None:
-            with torch.no_grad():
-                img_embedding_batch = resnet(img_cropped_batch.to(device)).cpu()
-
-            for box in boxes:
-                box_int = [int(b) for b in box]
-                cv2.rectangle(
-                    frame_draw, 
-                    (box_int[0], box_int[1]), 
-                    (box_int[2], box_int[3]), 
-                    (0, 255, 0), 2
-                )
-
-            verify_faces(
-                img_embedding_batch, 
-                reference_embeddings, 
-                reference_names, 
-                boxes, 
+            img_embedding_batch = resnet(img_cropped_batch.to(device)).cpu()
+        
+        # Draw face boxes
+        for box in boxes:
+            box_int = [int(b) for b in box]
+            cv2.rectangle(
                 frame_draw, 
-                threshold=0.85
+                (box_int[0], box_int[1]), 
+                (box_int[2], box_int[3]), 
+                (0, 255, 0), 2
             )
+        
+        # Verify faces against reference embeddings
+        verify_faces(
+            img_embedding_batch, 
+            reference_embeddings, 
+            reference_names, 
+            boxes, 
+            frame_draw, 
+            threshold=0.85
+        )
+    
+    # Add timestamp
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    cv2.putText(
+        frame_draw, timestamp, (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2
+    )
+    
+    return frame_draw
 
-        cv2.imshow('Face Recognition - Press Enter to Exit', frame_draw)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key == 13 or key == ord('q'):
-            print("Exit key pressed.")
-            break
-
-    print("Cleaning up...")
-    cv2.destroyAllWindows()
-    vs.stop()
-    print("Webcam stopped.")
+def get_stream_frames():
+    global vs, stream_active
+    
+    # Initialize video stream
+    if vs is None:
+        vs = WebcamVideoStream(src=0).start()
+        if vs.stream is None or not vs.stream.isOpened():
+            yield (b'--frame\r\n'
+                   b'Content-Type: text/plain\r\n\r\n'
+                   b'Error: Could not open webcam.\r\n\r\n')
+            return
+    
+    stream_active = True
+    
+    while stream_active:
+        frame = vs.read()
+        
+        if frame is None:
+            print("Warning: Failed to grab frame")
+            time.sleep(0.1)
+            continue
+        
+        try:
+            # Process the frame for face recognition
+            frame_with_detections = process_frame(frame)
+            
+            # Convert to JPEG for streaming
+            ret, buffer = cv2.imencode('.jpg', frame_with_detections)
+            
+            if not ret:
+                continue
+                
+            # Yield the frame in MJPEG format
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            
+            # Control frame rate to reduce CPU usage
+            time.sleep(0.03)  # ~30 FPS
+            
+        except Exception as e:
+            print(f"Error in streaming: {str(e)}")
+            time.sleep(0.1)
+    
+    # Clean up when streaming stops
+    if vs is not None:
+        vs.stop()
+        vs = None
