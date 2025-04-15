@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>All Employees</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+      }
+      .employee-grid {
+        display: grid;
+        /* Adjust grid columns for better display */
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+      }
+      .employee-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.3s ease;
+        display: flex; /* Use flexbox for card layout */
+        flex-direction: column; /* Stack elements vertically */
+      }
+      .employee-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+      .employee-name {
+        padding: 10px;
+        background-color: #f8f9fa;
+        text-align: center;
+        font-weight: bold;
+        border-bottom: 1px solid #ddd;
+      }
+      .photos {
+        display: flex; /* Arrange photos side-by-side */
+        justify-content: space-around; /* Space out photos */
+        padding: 10px;
+        flex-grow: 1; /* Allow photos section to grow */
+        align-items: center; /* Center photos vertically if they have different heights */
+      }
+      .photo {
+        /* Adjust size for card layout */
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 4px; /* Optional: add rounding */
+      }
+      .actions {
+        display: flex;
+        justify-content: space-around;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #ddd;
+      }
+      .btn {
+        padding: 5px 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 14px;
+      }
+      .btn-primary {
+        background-color: #0066cc;
+        color: white;
+      }
+      .btn-danger {
+        background-color: #dc3545;
+        color: white;
+      }
+      .btn:hover {
+        opacity: 0.9;
+      }
+      .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap; /* Allow actions to wrap on smaller screens */
+        gap: 10px; /* Add gap between action buttons */
+      }
+      .no-employees {
+        text-align: center;
+        padding: 50px;
+        font-size: 18px;
+        color: #666;
+        grid-column: 1 / -1; /* Make message span all grid columns */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header-actions">
+        <h1>All Employees</h1>
+        <div>
+          <a href="/upload/" class="btn btn-primary">Add New Employee</a>
+          {% if name_list %}
+          <a
+            href="/detect-frame/"
+            class="btn btn-primary"
+            onclick="alert('Starting face recognition. Press Enter to exit when finished.')"
+            >Start Face Recognition</a
+          >
+          <a
+            href="/deluserall/"
+            class="btn btn-danger"
+            onclick="return confirm('Are you sure you want to delete ALL employees?')"
+            >Delete All</a
+          >
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="employee-grid">
+        {% if name_list %} {% for id_val, name_val, photo1, photo2 in zip(ids,
+        name_list, photopath_list, photopath2_list) %}
+        <div class="employee-card">
+          <div class="employee-name">{{ name_val }} (ID: {{ id_val }})</div>
+          <div class="photos">
+            <img
+              src="/uploads/{{ name_val }}/1.jpeg"
+              alt="Photo 1 for {{ name_val }}"
+              class="photo"
+            />
+            <img
+              src="/uploads/{{ name_val }}/2.jpeg"
+              alt="Photo 2 for {{ name_val }}"
+              class="photo"
+            />
+          </div>
+          <div class="actions">
+            <a href="/viewuser/{{ id_val }}" class="btn btn-primary">View</a>
+            <a
+              href="/deluser/{{ id_val }}"
+              class="btn btn-danger"
+              onclick="return confirm('Delete {{ name_val }}?')"
+              >Delete</a
+            >
+          </div>
+        </div>
+        {% endfor %} {% else %}
+        <p class="no-employees">No employees found.</p>
+        {% endif %}
+      </div>
+    </div>
+  </body>
+</html>
