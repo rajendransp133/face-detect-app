@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Employee Face Recognition</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        text-align: center;
+      }
+      h1 {
+        color: #333;
+      }
+      .stream-container {
+        max-width: 800px;
+        margin: 0 auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        position: relative;
+      }
+      .stream-img {
+        width: 100%;
+        max-width: 640px;
+        height: auto;
+      }
+      .controls {
+        margin-top: 20px;
+      }
+      .button {
+        background-color: #4caf50;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+      .button-stop {
+        background-color: #f44336;
+      }
+      .verified-user-container {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f0f0f0;
+        border-radius: 5px;
+        display: none; /* Hidden by default */
+      }
+      .verified-user {
+        font-size: 24px;
+        font-weight: bold;
+        color: #2e7d32;
+      }
+      .verified-badge {
+        font-size: 18px;
+        background-color: #4caf50;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        margin-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Employee Face Recognition Stream</h1>
+
+    <div class="stream-container">
+      <img src="/video-feed" class="stream-img" id="videoFeed" />
+
+      <div id="verifiedUserContainer" class="verified-user-container">
+        <div>
+          <span class="verified-user" id="verifiedUserName"
+            >No user detected</span
+          >
+          <span class="verified-badge">Verified User</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <a href="/viewuserall/" class="button">View All Employees</a>
+        <a href="/upload/" class="button">Upload New Employee</a>
+        <button id="stopButton" class="button button-stop">Stop Stream</button>
+      </div>
+    </div>
+
+    <script>
+      // Function to check for detected faces
+      function checkDetectedFaces() {
+        fetch("/detected-faces")
+          .then((response) => response.json())
+          .then((data) => {
+            const verifiedUserContainer = document.getElementById(
+              "verifiedUserContainer"
+            );
+            const verifiedUserName =
+              document.getElementById("verifiedUserName");
+
+            // If faces were detected
+            if (Object.keys(data).length > 0) {
+              // Get the first detected face
+              const firstFace = data[Object.keys(data)[0]];
+
+              // Display the name and show the container
+              verifiedUserName.textContent = firstFace.name;
+              verifiedUserContainer.style.display = "block";
+            } else {
+              // No faces detected, hide the container
+              verifiedUserContainer.style.display = "none";
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching detected faces:", error);
+          });
+      }
+
+      // Poll for detected faces every second
+      setInterval(checkDetectedFaces, 1000);
+
+      // Stop stream button
+      document
+        .getElementById("stopButton")
+        .addEventListener("click", function () {
+          fetch("/stop-stream", {
+            method: "POST",
+          }).then((response) => {
+            if (response.ok) {
+              window.location.href = "/viewuserall/";
+            }
+          });
+        });
+    </script>
+  </body>
+</html>
