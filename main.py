@@ -48,53 +48,57 @@ async def upload_form(request: Request):
 
 @app.post("/uploader/")
 async def create_upload_file(
+    request: Request,
     name: Annotated[str, Form()],
     files: Annotated[List[UploadFile], File()],
     hindi_name: Annotated[str, Form()] = None, 
     tamil_name: Annotated[str, Form()] = None
 ):
-    if not name.strip():
-        raise HTTPException(status_code=400, detail="Name cannot be empty")
-    
-    if len(files) != 2:
-        raise HTTPException(status_code=400, detail="Please upload exactly two files")
-    
-    for file in files:
-        content_type = file.content_type
-        if not content_type or not content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail=f"File {file.filename} is not an image")
-    
-    employee_dir = os.path.join("uploads", name)
-    os.makedirs(employee_dir, exist_ok=True)
-    
-    file_paths = []
-    
-    for i, file in enumerate(files, 1):
-        file_extension = os.path.splitext(file.filename)[1] 
-        if file_extension!=".jpeg":
-            file_extension = ".jpeg"  
-            
-        file_path = os.path.join(employee_dir, f"{i}{file_extension}")
-        
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-            
-        file_paths.append(file_path)
-
+    message = ""
     try:
-        insert_employee(DB_NAME, name, file_paths[0], file_paths[1],hindi_name,tamil_name)
+        if not name.strip():
+            message = "Name cannot be empty"
+            raise ValueError(message)
+        
+        if len(files) != 2:
+            message = "Please upload exactly two files"
+            raise ValueError(message)
+
+        for file in files:
+            content_type = file.content_type
+            if not content_type or not content_type.startswith('image/'):
+                message = f"File {file.filename} is not an image"
+                raise ValueError(message)
+
+        employee_dir = os.path.join("uploads", name)
+        os.makedirs(employee_dir, exist_ok=True)
+
+        file_paths = []
+        for i, file in enumerate(files, 1):
+            file_extension = os.path.splitext(file.filename)[1] 
+            if file_extension != ".jpeg":
+                file_extension = ".jpeg"  
+                
+            file_path = os.path.join(employee_dir, f"{i}{file_extension}")
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            file_paths.append(file_path)
+
+        insert_employee(DB_NAME, name, file_paths[0], file_paths[1], hindi_name, tamil_name)
+        message = f"Files uploaded successfully for '{name}' ✅"
+
     except Exception as e:
+        if not message:
+            message = f"Error: {str(e)}"
         for path in file_paths:
             if os.path.exists(path):
                 os.remove(path)
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    return {
-        "message": f"Files uploaded and stored in DB under name '{name}'",
-        "filenames": [file.filename for file in files],
-        "saved_paths": file_paths,
-        "view_all_url": "/viewAllUser/"
-    }
+    return templates.TemplateResponse("uploadfile-c.html", {
+        "request": request,
+        "message": message
+    })
+
 
 @app.get("/viewUser/{id}", response_class=HTMLResponse)
 async def view_user(request: Request, id: int):
@@ -270,7 +274,7 @@ async def detect_frame(request: Request):
 
 @app.post("/processFrame")
 async def process_frame_route(frame: UploadFile = File(...)):
-    from restnet import mtcnn, resnet, process_frame, initialize_face_recognition
+    from restnet import mtcnn, resnet, initialize_face_recognition
     
     # Initialize face recognition if not already initialized
     if mtcnn is None or resnet is None:
