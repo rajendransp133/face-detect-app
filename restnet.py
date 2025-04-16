@@ -11,10 +11,13 @@ import time
 
 stream_active = False
 vs = None
-DB_NAME = "employee_data.db"
+DB_NAME = "user_db.db"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-detected_faces = {}  # Dictionary to store detected faces
-
+detected_faces = {}  
+reference_embeddings = None
+reference_names = None
+mtcnn=None
+resnet=None
 
 
 def generate_reference_embeddings():
@@ -39,7 +42,7 @@ def generate_reference_embeddings():
     names = []
     
     for employee in employees:
-        emp_id, name, photo_path, photo_path2 = employee
+        emp_id, name, photo_path, photo_path2,hindi_name,tamil_name = employee
         
         for photo_path in [photo_path, photo_path2]:
             try:
@@ -99,7 +102,7 @@ def cos(a, b):
 
 def verify_faces(current_embeddings, ref_embeddings, ref_names, detected_boxes, image_to_draw, threshold=0.85):
     global detected_faces
-    
+
     if detected_boxes is None or current_embeddings is None or ref_embeddings is None or ref_names is None:
         return
     
@@ -135,7 +138,6 @@ def verify_faces(current_embeddings, ref_embeddings, ref_names, detected_boxes, 
                             cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1, cv2.LINE_AA
                         )
                         
-                        # Store detected face information
                         detected_faces[j] = {
                             "name": ref_name,
                             "similarity": dist.item(),
@@ -145,14 +147,12 @@ def verify_faces(current_embeddings, ref_embeddings, ref_names, detected_boxes, 
 def initialize_face_recognition():
     global mtcnn, resnet, reference_embeddings, reference_names
     
-    # Generate reference embeddings
     reference_embeddings, reference_names = generate_reference_embeddings()
     
     if reference_embeddings is None or reference_names is None:
         print("Failed to generate reference embeddings.")
         return False
     
-    # Initialize models
     mtcnn = MTCNN(
         image_size=160, margin=0, min_face_size=20,
         thresholds=[0.6, 0.7, 0.7], factor=0.709, prewhiten=True,
@@ -166,8 +166,8 @@ def initialize_face_recognition():
 def process_frame(frame):
     global mtcnn, resnet, reference_embeddings, reference_names
     
-    frame = cv2.flip(frame, 1)  # Mirror the frame
-    frame = imutils.resize(frame, width=640)  # Resize for web display
+    frame = cv2.flip(frame, 1) 
+    frame = imutils.resize(frame, width=640)
     
     img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     
@@ -181,7 +181,6 @@ def process_frame(frame):
         with torch.no_grad():
             img_embedding_batch = resnet(img_cropped_batch.to(device)).cpu()
         
-        # Draw face boxes
         for box in boxes:
             box_int = [int(b) for b in box]
             cv2.rectangle(
@@ -191,7 +190,6 @@ def process_frame(frame):
                 (0, 255, 0), 2
             )
         
-        # Verify faces against reference embeddings
         verify_faces(
             img_embedding_batch, 
             reference_embeddings, 
@@ -201,7 +199,6 @@ def process_frame(frame):
             threshold=0.85
         )
     
-    # Add timestamp
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     cv2.putText(
         frame_draw, timestamp, (10, 30),
@@ -213,7 +210,6 @@ def process_frame(frame):
 def get_stream_frames():
     global vs, stream_active
     
-    # Initialize video stream
     if vs is None:
         vs = WebcamVideoStream(src=0).start()
         if vs.stream is None or not vs.stream.isOpened():
@@ -233,27 +229,22 @@ def get_stream_frames():
             continue
         
         try:
-            # Process the frame for face recognition
             frame_with_detections = process_frame(frame)
             
-            # Convert to JPEG for streaming
             ret, buffer = cv2.imencode('.jpg', frame_with_detections)
             
             if not ret:
                 continue
                 
-            # Yield the frame in MJPEG format
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
             
-            # Control frame rate to reduce CPU usage
-            time.sleep(0.03)  # ~30 FPS
+            time.sleep(0.03) 
             
         except Exception as e:
             print(f"Error in streaming: {str(e)}")
             time.sleep(0.1)
     
-    # Clean up when streaming stops
     if vs is not None:
         vs.stop()
         vs = None

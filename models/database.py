@@ -10,16 +10,19 @@ def create_database(db_name):
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                hindi_name TEXT,
+                tamil_name TEXT,
                 photo_path TEXT NOT NULL,
                 photo_path2 TEXT NOT NULL
+
             );
         '''
         cursor.execute(create_table_query)
         conn.commit()
-        print("📁 SQLite table 'employees' created (if it didn't already exist)")
+        print("SQLite table 'employees' created (if it didn't already exist)")
 
     except sqlite3.Error as error:
-        print("❌ Error while creating a SQLite table:", error)
+        print("Error while creating a SQLite table:", error)
 
     finally:
         if conn:

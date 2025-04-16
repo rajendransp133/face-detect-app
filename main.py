@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse,JSONResponse
 import uvicorn
 import shutil
 from fastapi.templating import Jinja2Templates
@@ -21,7 +21,7 @@ import time
 from models.database import create_database
 from controller.db_query import insert_employee, get_all_employees, get_employee, delete_employee, delete_all_employees
 from restnet import initialize_face_recognition,get_stream_frames
-from restnet import vs,stream_active
+from restnet import vs,stream_active,mtcnn,resnet
 
 
 app = FastAPI(title="Employee Photo Manager")
@@ -29,16 +29,10 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 templates = Jinja2Templates(directory="templates")
 
-DB_NAME = "employee_data.db"
+DB_NAME = "user_db.db"
 
 os.makedirs("uploads", exist_ok=True)
 
-# Global variables for face recognition
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-mtcnn = None
-resnet = None
-reference_embeddings = None
-reference_names = None
 
 create_database(DB_NAME)
 
@@ -54,7 +48,9 @@ async def upload_form(request: Request):
 @app.post("/uploader/")
 async def create_upload_file(
     name: Annotated[str, Form()],
-    files: Annotated[List[UploadFile], File()]
+    files: Annotated[List[UploadFile], File()],
+    hindi_name: Annotated[str, Form()] = None, 
+    tamil_name: Annotated[str, Form()] = None
 ):
     if not name.strip():
         raise HTTPException(status_code=400, detail="Name cannot be empty")
@@ -85,7 +81,7 @@ async def create_upload_file(
         file_paths.append(file_path)
 
     try:
-        insert_employee(DB_NAME, name, file_paths[0], file_paths[1])
+        insert_employee(DB_NAME, name, file_paths[0], file_paths[1],hindi_name,tamil_name)
     except Exception as e:
         for path in file_paths:
             if os.path.exists(path):
@@ -106,7 +102,7 @@ async def view_user(request: Request, id: int):
     if not employee:
         raise HTTPException(status_code=404, detail=f"User with ID {id} not found")
     
-    emp_id, name, photo_path, photo_path2 = employee
+    emp_id, name, photo_path, photo_path2,hindi_name ,tamil_name = employee
         
     return templates.TemplateResponse(
         "showUser-c.html", 
@@ -115,7 +111,9 @@ async def view_user(request: Request, id: int):
             "id": emp_id,
             "name": name,
             "photopath": photo_path.replace("uploads/", ""),
-            "photopath2": photo_path2.replace("uploads/", "")
+            "photopath2": photo_path2.replace("uploads/", ""),
+            "hindi_name":hindi_name,
+            "tamil_name":tamil_name
         }
     )
 
@@ -128,13 +126,18 @@ async def view_user_all(request: Request):
         names = []
         photo_paths = []
         photo_paths2 = []
+        hindi_names=[]
+        tamil_names=[]
         
         for employee in employees:
-            emp_id, name, photo_path, photo_path2 = employee
+            emp_id, name, photo_path, photo_path2,hindi_name,tamil_name = employee
             ids.append(emp_id)
             names.append(name)
             photo_paths.append(photo_path.replace("uploads/", ""))
             photo_paths2.append(photo_path2.replace("uploads/", ""))
+            hindi_names.append(hindi_name)
+            tamil_names.append(tamil_name)
+
             
         return templates.TemplateResponse(
             "showUserall-c.html", 
@@ -144,7 +147,9 @@ async def view_user_all(request: Request):
                 "name_list": names, 
                 "photopath_list": photo_paths, 
                 "photopath2_list": photo_paths2,
-                "zip": zip
+                "zip": zip,
+                "hindi_name_list":hindi_names,
+                "tamil_name_list":tamil_names
             }
         )
     except Exception as e:
@@ -163,35 +168,80 @@ async def view_user_all(request: Request):
             status_code=500
         )
 
+@app.get("/deluser/{id}", response_class=HTMLResponse)
+async def delete_users_route(request: Request, id: int):
+    try:
+        employee = get_employee(DB_NAME, id)
+        if employee:
+            _, _, photo_path, photo_path2,_,_ = employee
+            for path in [photo_path, photo_path2]:
+                if os.path.exists(path):
+                    os.remove(path)
+            
+            delete_employee(DB_NAME, id)
+        else:
+            raise HTTPException(status_code=404, detail=f"User with ID {id} not found")
+        
+        return RedirectResponse(url="/viewuserall/", status_code=303)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}")
+    
 @app.get("/deluserall/", response_class=HTMLResponse)
 async def delete_all_users_route(request: Request):
     try:
         employees = get_all_employees(DB_NAME)
-        for employee in employees:
-            _, _, photo_path, photo_path2 = employee
-            for path in [photo_path, photo_path2]:
-                if os.path.exists(path):
-                    os.remove(path)
+        if employees:  # Check if employees is not None and not empty
+            for employee in employees:
+                _, _, photo_path, photo_path2,_,_ = employee
+                for path in [photo_path, photo_path2]:
+                    if os.path.exists(path):
+                        os.remove(path)
         
         delete_all_employees(DB_NAME)
         return RedirectResponse(url="/viewuserall/", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting all users: {str(e)}")
-
-
+    
 @app.get("/detected-faces")
 async def get_detected_faces():
     from restnet import detected_faces
-    return dict(detected_faces)
 
-# New endpoints for webcam streaming
+    # Check if any faces are detected
+    if not detected_faces:
+        return JSONResponse({})  # Return empty dict if no faces
+
+    result = {}
+    
+    # Get face detection data - detected_faces is a dict with numeric keys
+    for face_idx, face_data in detected_faces.items():
+        detected_name = face_data["name"]
+        conn = sqlite3.connect("user_db.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, name, photo_path, photo_path2, hindi_name, tamil_name FROM employees WHERE name = ?",
+            (detected_name,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            # Use the database ID as the key in our results
+            result[row[0]] = {
+                "name": row[1],
+                "hindi_name": row[4] if row[4] else "-",
+                "tamil_name": row[5] if row[5] else "-",
+                "similarity": face_data["similarity"]
+            }
+    
+    return JSONResponse(result)
+
+
 @app.get("/webcam-stream/", response_class=HTMLResponse)
 async def webcam_stream_page(request: Request):
     return templates.TemplateResponse("webcam_stream.html", {"request": request})
 
 @app.get("/video-feed")
 async def video_feed():
-    # Initialize face recognition system if not already done
     global mtcnn, resnet
     if mtcnn is None or resnet is None:
         success = initialize_face_recognition()
@@ -214,6 +264,4 @@ async def stop_stream():
 
 @app.get("/detect-frame/")
 async def detectframe(request: Request):
-    # Redirect to the webcam stream page instead of opening a popup
     return RedirectResponse(url="/webcam-stream/", status_code=303)
-

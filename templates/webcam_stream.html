@@ -78,6 +78,10 @@
           >
           <span class="verified-badge">Verified User</span>
         </div>
+        <div>
+          <p>Hindi Name: <strong id="verifiedHindiName">-</strong></p>
+          <p>Tamil Name: <strong id="verifiedTamilName">-</strong></p>
+        </div>
       </div>
 
       <div class="controls">
@@ -96,16 +100,24 @@
             const verifiedUserContainer = document.getElementById(
               "verifiedUserContainer"
             );
-            const verifiedUserName =
-              document.getElementById("verifiedUserName");
 
             // If faces were detected
             if (Object.keys(data).length > 0) {
-              // Get the first detected face
-              const firstFace = data[Object.keys(data)[0]];
+              // Get the first detected face ID
+              const firstFaceId = Object.keys(data)[0];
+              const firstFace = data[firstFaceId];
+
+              const verifiedUserName =
+                document.getElementById("verifiedUserName");
+              const verifiedHindiName =
+                document.getElementById("verifiedHindiName");
+              const verifiedTamilName =
+                document.getElementById("verifiedTamilName");
 
               // Display the name and show the container
               verifiedUserName.textContent = firstFace.name;
+              verifiedHindiName.textContent = firstFace.hindi_name || "-";
+              verifiedTamilName.textContent = firstFace.tamil_name || "-";
               verifiedUserContainer.style.display = "block";
             } else {
               // No faces detected, hide the container
