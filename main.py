@@ -17,10 +17,11 @@ import imutils
 from imutils.video import WebcamVideoStream
 import threading
 import time
+import io
 
 from models.database import create_database
 from controller.dbQuery import insert_employee, get_all_employees, get_employee, delete_employee, delete_all_employees
-from restnet import initialize_face_recognition,get_stream_frames
+from restnet import initialize_face_recognition,get_stream_frames,process_frame
 from restnet import vs,stream_active,mtcnn,resnet
 
 
@@ -265,3 +266,24 @@ async def stop_stream():
 @app.get("/detectFrame/")
 async def detect_frame(request: Request):
     return RedirectResponse(url="/webcamStream/", status_code=303)
+
+
+@app.post("/processFrame")
+async def process_frame_route(frame: UploadFile = File(...)):
+    from restnet import mtcnn, resnet, process_frame, initialize_face_recognition
+    
+    # Initialize face recognition if not already initialized
+    if mtcnn is None or resnet is None:
+        success = initialize_face_recognition()
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to initialize face recognition")
+    
+    data = await frame.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    
+    # Process the frame with face detection and bounding boxes
+    processed = process_frame(img)
+    
+    # Return the processed image with bounding boxes
+    _, encoded = cv2.imencode('.jpg', processed)
+    return StreamingResponse(io.BytesIO(encoded.tobytes()), media_type="image/jpeg")

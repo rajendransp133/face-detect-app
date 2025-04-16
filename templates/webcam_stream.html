@@ -19,10 +19,12 @@
         padding: 10px;
         position: relative;
       }
-      .stream-img {
+      video,
+      canvas {
         width: 100%;
         max-width: 640px;
         height: auto;
+        border-radius: 8px;
       }
       .controls {
         margin-top: 20px;
@@ -32,9 +34,6 @@
         border: none;
         color: white;
         padding: 10px 20px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
         font-size: 16px;
         margin: 4px 2px;
         cursor: pointer;
@@ -48,7 +47,7 @@
         padding: 15px;
         background-color: #f0f0f0;
         border-radius: 5px;
-        display: none; /* Hidden by default */
+        display: none;
       }
       .verified-user {
         font-size: 24px;
@@ -69,7 +68,8 @@
     <h1>Employee Face Recognition Stream</h1>
 
     <div class="stream-container">
-      <img src="/videoFeed" class="stream-img" id="videoFeed" />
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="canvas" style="display: none"></canvas>
 
       <div id="verifiedUserContainer" class="verified-user-container">
         <div>
@@ -92,57 +92,71 @@
     </div>
 
     <script>
-      // Function to check for detected faces
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Start webcam
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
+          video.srcObject = stream;
+        })
+        .catch((err) => {
+          alert("Could not access webcam: " + err);
+        });
+
+      // Send frame every 500ms
+      setInterval(() => {
+        if (video.readyState === 4) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+
+          canvas.toBlob((blob) => {
+            const formData = new FormData();
+            formData.append("frame", blob, "frame.jpg");
+
+            fetch("/processFrame", {
+              method: "POST",
+              body: formData,
+            }).catch((err) => {
+              console.error("Error sending frame:", err);
+            });
+          }, "image/jpeg");
+        }
+      }, 500);
+
+      // Check for verified user info
       function checkDetectedFaces() {
         fetch("/detectedFaces")
           .then((response) => response.json())
           .then((data) => {
-            const verifiedUserContainer = document.getElementById(
-              "verifiedUserContainer"
-            );
-
-            // If faces were detected
+            const container = document.getElementById("verifiedUserContainer");
             if (Object.keys(data).length > 0) {
-              // Get the first detected face ID
-              const firstFaceId = Object.keys(data)[0];
-              const firstFace = data[firstFaceId];
-
-              const verifiedUserName =
-                document.getElementById("verifiedUserName");
-              const verifiedHindiName =
-                document.getElementById("verifiedHindiName");
-              const verifiedTamilName =
-                document.getElementById("verifiedTamilName");
-
-              // Display the name and show the container
-              verifiedUserName.textContent = firstFace.name;
-              verifiedHindiName.textContent = firstFace.hindi_name || "-";
-              verifiedTamilName.textContent = firstFace.tamil_name || "-";
-              verifiedUserContainer.style.display = "block";
+              const firstFace = Object.values(data)[0];
+              document.getElementById("verifiedUserName").textContent =
+                firstFace.name;
+              document.getElementById("verifiedHindiName").textContent =
+                firstFace.hindi_name || "-";
+              document.getElementById("verifiedTamilName").textContent =
+                firstFace.tamil_name || "-";
+              container.style.display = "block";
             } else {
-              // No faces detected, hide the container
-              verifiedUserContainer.style.display = "none";
+              container.style.display = "none";
             }
-          })
-          .catch((error) => {
-            console.error("Error fetching detected faces:", error);
           });
       }
 
-      // Poll for detected faces every second
       setInterval(checkDetectedFaces, 1000);
 
-      // Stop stream button
       document
         .getElementById("stopButton")
         .addEventListener("click", function () {
-          fetch("/stopStream", {
-            method: "POST",
-          }).then((response) => {
-            if (response.ok) {
-              window.location.href = "/viewAllUser/";
-            }
-          });
+          const stream = video.srcObject;
+          const tracks = stream.getTracks();
+          tracks.forEach((track) => track.stop());
+          window.location.href = "/viewAllUser/";
         });
     </script>
   </body>
