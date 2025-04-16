@@ -102,13 +102,13 @@
           <a href="/upload/" class="btn btn-primary">Add New Employee</a>
           {% if name %}
           <a
-            href="/detect-frame/"
+            href="/detectFrame/"
             class="btn btn-primary"
             onclick="alert('Starting face recognition. Press Enter to exit when finished.')"
             >Start Face Recognition</a
           >
           <a
-            href="/deluserall/"
+            href="/delAllUser/"
             class="btn btn-danger"
             onclick="return confirm('Are you sure you want to delete ALL employees?')"
             >Delete All</a
@@ -136,9 +136,9 @@
             />
           </div>
           <div class="actions">
-            <a href="/viewuser/{{ id }}" class="btn btn-primary">View</a>
+            <a href="/viewUser/{{ id }}" class="btn btn-primary">View</a>
             <a
-              href="/deluser/{{ id }}"
+              href="/delUser/{{ id }}"
               class="btn btn-danger"
               onclick="return confirm('Are you sure you want to delete this employee?')"
               >Delete</a

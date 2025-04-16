@@ -69,7 +69,7 @@
     <h1>Employee Face Recognition Stream</h1>
 
     <div class="stream-container">
-      <img src="/video-feed" class="stream-img" id="videoFeed" />
+      <img src="/videoFeed" class="stream-img" id="videoFeed" />
 
       <div id="verifiedUserContainer" class="verified-user-container">
         <div>
@@ -85,7 +85,7 @@
       </div>
 
       <div class="controls">
-        <a href="/viewuserall/" class="button">View All Employees</a>
+        <a href="/viewAllUser/" class="button">View All Employees</a>
         <a href="/upload/" class="button">Upload New Employee</a>
         <button id="stopButton" class="button button-stop">Stop Stream</button>
       </div>
@@ -94,7 +94,7 @@
     <script>
       // Function to check for detected faces
       function checkDetectedFaces() {
-        fetch("/detected-faces")
+        fetch("/detectedFaces")
           .then((response) => response.json())
           .then((data) => {
             const verifiedUserContainer = document.getElementById(
@@ -136,11 +136,11 @@
       document
         .getElementById("stopButton")
         .addEventListener("click", function () {
-          fetch("/stop-stream", {
+          fetch("/stopStream", {
             method: "POST",
           }).then((response) => {
             if (response.ok) {
-              window.location.href = "/viewuserall/";
+              window.location.href = "/viewAllUser/";
             }
           });
         });

@@ -19,7 +19,7 @@ import threading
 import time
 
 from models.database import create_database
-from controller.db_query import insert_employee, get_all_employees, get_employee, delete_employee, delete_all_employees
+from controller.dbQuery import insert_employee, get_all_employees, get_employee, delete_employee, delete_all_employees
 from restnet import initialize_face_recognition,get_stream_frames
 from restnet import vs,stream_active,mtcnn,resnet
 
@@ -92,10 +92,10 @@ async def create_upload_file(
         "message": f"Files uploaded and stored in DB under name '{name}'",
         "filenames": [file.filename for file in files],
         "saved_paths": file_paths,
-        "view_all_url": "/viewuserall/"
+        "view_all_url": "/viewAllUser/"
     }
 
-@app.get("/viewuser/{id}", response_class=HTMLResponse)
+@app.get("/viewUser/{id}", response_class=HTMLResponse)
 async def view_user(request: Request, id: int):
     employee = get_employee(DB_NAME, id)
     
@@ -117,8 +117,8 @@ async def view_user(request: Request, id: int):
         }
     )
 
-@app.get("/viewuserall/", response_class=HTMLResponse)
-async def view_user_all(request: Request):
+@app.get("/viewAllUser/", response_class=HTMLResponse)
+async def view_all_user(request: Request):
     try:
         employees = get_all_employees(DB_NAME)
         
@@ -168,8 +168,8 @@ async def view_user_all(request: Request):
             status_code=500
         )
 
-@app.get("/deluser/{id}", response_class=HTMLResponse)
-async def delete_users_route(request: Request, id: int):
+@app.get("/delUser/{id}", response_class=HTMLResponse)
+async def delete_users(request: Request, id: int):
     try:
         employee = get_employee(DB_NAME, id)
         if employee:
@@ -182,12 +182,12 @@ async def delete_users_route(request: Request, id: int):
         else:
             raise HTTPException(status_code=404, detail=f"User with ID {id} not found")
         
-        return RedirectResponse(url="/viewuserall/", status_code=303)
+        return RedirectResponse(url="/viewAllUser/", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}")
     
-@app.get("/deluserall/", response_class=HTMLResponse)
-async def delete_all_users_route(request: Request):
+@app.get("/delAllUser/", response_class=HTMLResponse)
+async def delete_all_users(request: Request):
     try:
         employees = get_all_employees(DB_NAME)
         if employees:  # Check if employees is not None and not empty
@@ -198,11 +198,11 @@ async def delete_all_users_route(request: Request):
                         os.remove(path)
         
         delete_all_employees(DB_NAME)
-        return RedirectResponse(url="/viewuserall/", status_code=303)
+        return RedirectResponse(url="/viewAllUser/", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting all users: {str(e)}")
     
-@app.get("/detected-faces")
+@app.get("/detectedFaces")
 async def get_detected_faces():
     from restnet import detected_faces
 
@@ -236,11 +236,11 @@ async def get_detected_faces():
     return JSONResponse(result)
 
 
-@app.get("/webcam-stream/", response_class=HTMLResponse)
+@app.get("/webcamStream/", response_class=HTMLResponse)
 async def webcam_stream_page(request: Request):
     return templates.TemplateResponse("webcam_stream.html", {"request": request})
 
-@app.get("/video-feed")
+@app.get("/videoFeed")
 async def video_feed():
     global mtcnn, resnet
     if mtcnn is None or resnet is None:
@@ -253,7 +253,7 @@ async def video_feed():
         media_type="multipart/x-mixed-replace;boundary=frame"
     )
 
-@app.post("/stop-stream")
+@app.post("/stopStream")
 async def stop_stream():
     global stream_active, vs
     stream_active = False
@@ -262,6 +262,6 @@ async def stop_stream():
         vs = None
     return {"status": "Stream stopped"}
 
-@app.get("/detect-frame/")
-async def detectframe(request: Request):
-    return RedirectResponse(url="/webcam-stream/", status_code=303)
+@app.get("/detectFrame/")
+async def detect_frame(request: Request):
+    return RedirectResponse(url="/webcamStream/", status_code=303)

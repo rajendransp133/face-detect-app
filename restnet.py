@@ -1,7 +1,7 @@
 import torch
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import numpy as np
-from controller.db_query import get_all_employees
+from controller.dbQuery import get_all_employees
 from PIL import Image
 import pandas as pd
 from imutils.video import WebcamVideoStream
