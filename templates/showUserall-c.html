@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>All Employees</title>
+    <title>All User</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -107,9 +107,9 @@
   <body>
     <div class="container">
       <div class="header-actions">
-        <h1>All Employees</h1>
+        <h1>All User</h1>
         <div>
-          <a href="/upload/" class="btn btn-primary">Add New Employee</a>
+          <a href="/upload/" class="btn btn-primary">Add New User</a>
           {% if name_list %}
           <a
             href="/detectFrame/"
@@ -120,7 +120,7 @@
           <a
             href="/delAllUser/"
             class="btn btn-danger"
-            onclick="return confirm('Are you sure you want to delete ALL employees?')"
+            onclick="return confirm('Are you sure you want to delete ALL User?')"
             >Delete All</a
           >
           {% endif %}
@@ -158,7 +158,7 @@
           </div>
         </div>
         {% endfor %} {% else %}
-        <p class="no-employees">No employees found.</p>
+        <p class="no-employees">No User found.</p>
         {% endif %}
       </div>
     </div>

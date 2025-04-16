@@ -291,3 +291,5 @@ async def process_frame_route(frame: UploadFile = File(...)):
     # Return the processed image with bounding boxes
     _, encoded = cv2.imencode('.jpg', processed)
     return StreamingResponse(io.BytesIO(encoded.tobytes()), media_type="image/jpeg")
+
+

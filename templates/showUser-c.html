@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>All Employees</title>
+    <title>All Users</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -97,9 +97,9 @@
   <body>
     <div class="container">
       <div class="header-actions">
-        <h1>All Employees</h1>
+        <h1>All User</h1>
         <div>
-          <a href="/upload/" class="btn btn-primary">Add New Employee</a>
+          <a href="/upload/" class="btn btn-primary">Add New User</a>
           {% if name %}
           <a
             href="/detectFrame/"
@@ -110,7 +110,7 @@
           <a
             href="/delAllUser/"
             class="btn btn-danger"
-            onclick="return confirm('Are you sure you want to delete ALL employees?')"
+            onclick="return confirm('Are you sure you want to delete ALL User?')"
             >Delete All</a
           >
           {% endif %}
@@ -140,7 +140,7 @@
             <a
               href="/delUser/{{ id }}"
               class="btn btn-danger"
-              onclick="return confirm('Are you sure you want to delete this employee?')"
+              onclick="return confirm('Are you sure you want to delete this User?')"
               >Delete</a
             >
           </div>
@@ -148,8 +148,8 @@
       </div>
       {% else %}
       <div class="no-employees">
-        <p>No employees found in the database.</p>
-        <p>Use the "Add New Employee" button to get started.</p>
+        <p>No User found in the database.</p>
+        <p>Use the "Add New User" button to get started.</p>
       </div>
       {% endif %}
     </div>
