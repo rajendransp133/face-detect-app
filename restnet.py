@@ -11,7 +11,7 @@ import time
 
 stream_active = False
 vs = None
-DB_NAME = "user_db.db"
+DB_NAME = "user_db6.db"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 detected_faces = {}  
 reference_embeddings = None
@@ -42,7 +42,7 @@ def generate_reference_embeddings():
     names = []
     
     for employee in employees:
-        emp_id, name, photo_path, photo_path2,hindi_name,tamil_name = employee
+        emp_id, name, photo_path, photo_path2,hindi_name,tamil_name,designation = employee
         
         for photo_path in [photo_path, photo_path2]:
             try:

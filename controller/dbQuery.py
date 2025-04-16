@@ -1,6 +1,6 @@
 import sqlite3
 
-def insert_employee(db_name, name, photo_path, photo_path2,hindi_name=None,tamil_name=None):
+def insert_employee(db_name, name, photo_path, photo_path2,designations,hindi_name=None,tamil_name=None):
     conn = None
     
     try:
@@ -8,9 +8,9 @@ def insert_employee(db_name, name, photo_path, photo_path2,hindi_name=None,tamil
         cursor = conn.cursor()
         
         insert_query = """INSERT INTO employees
-                        (name, photo_path, photo_path2,hindi_name,tamil_name) VALUES (?, ?, ?,?,?)"""
+                        (name, photo_path, photo_path2,hindi_name,tamil_name,designations) VALUES (?, ?, ?,?,?,?)"""
         
-        data_tuple = (name, photo_path, photo_path2,hindi_name,tamil_name)
+        data_tuple = (name, photo_path, photo_path2,hindi_name,tamil_name,designations)
         cursor.execute(insert_query, data_tuple)
         conn.commit()
         cursor.close()
@@ -31,7 +31,7 @@ def get_all_employees(db_name):
         conn = sqlite3.connect(db_name)
         cursor = conn.cursor()
 
-        query = "SELECT id, name, photo_path, photo_path2,hindi_name,tamil_name FROM employees"
+        query = "SELECT id, name, photo_path, photo_path2,hindi_name,tamil_name,designations FROM employees"
         cursor.execute(query)
         employees = cursor.fetchall()
         
@@ -53,7 +53,7 @@ def get_employee(db_name, emp_id):
         conn = sqlite3.connect(db_name)
         cursor = conn.cursor()
 
-        query = "SELECT id, name, photo_path, photo_path2,hindi_name,tamil_name FROM employees WHERE id = ?"
+        query = "SELECT id, name, photo_path, photo_path2,hindi_name,tamil_name,designations FROM employees WHERE id = ?"
         cursor.execute(query, (emp_id,))
         employee = cursor.fetchone()
         

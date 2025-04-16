@@ -10,11 +10,11 @@ def create_database(db_name):
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                photo_path TEXT NOT NULL,
+                photo_path2 TEXT NOT NULL,
                 hindi_name TEXT,
                 tamil_name TEXT,
-                photo_path TEXT NOT NULL,
-                photo_path2 TEXT NOT NULL
-
+                designations TEXT NOT NULL
             );
         '''
         cursor.execute(create_table_query)

@@ -129,12 +129,14 @@
 
       <div class="employee-grid">
         {% if name_list %} {% for id_val, name_val, photo1,
-        photo2,hindi_name_value,tamil_name_value in zip(ids, name_list,
-        photopath_list, photopath2_list,hindi_name_list,tamil_name_list) %}
+        photo2,hindi_name_value,tamil_name_value,designation_value in zip(ids,
+        name_list, photopath_list,
+        photopath2_list,hindi_name_list,tamil_name_list,designation_list) %}
         <div class="employee-card">
           <div class="employee-name">{{ name_val }} (ID: {{ id_val }})</div>
           <div class="employee-name">{{ hindi_name_value }}</div>
           <div class="employee-name">{{ tamil_name_value }}</div>
+          <div class="employee-name">Designation:{{ designation_value }}</div>
           <div class="photos">
             <img
               src="/uploads/{{ name_val }}/1.jpeg"

@@ -30,7 +30,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 templates = Jinja2Templates(directory="templates")
 
-DB_NAME = "user_db.db"
+DB_NAME = "user_db6.db"
 
 os.makedirs("uploads", exist_ok=True)
 
@@ -51,6 +51,7 @@ async def create_upload_file(
     request: Request,
     name: Annotated[str, Form()],
     files: Annotated[List[UploadFile], File()],
+    designation: Annotated[str, Form()],
     hindi_name: Annotated[str, Form()] = None, 
     tamil_name: Annotated[str, Form()] = None
 ):
@@ -58,6 +59,10 @@ async def create_upload_file(
     try:
         if not name.strip():
             message = "Name cannot be empty"
+            raise ValueError(message)
+        
+        if not designation.strip():
+            message = "designation cannot be empty"
             raise ValueError(message)
         
         if len(files) != 2:
@@ -84,9 +89,9 @@ async def create_upload_file(
                 shutil.copyfileobj(file.file, buffer)
             file_paths.append(file_path)
 
-        insert_employee(DB_NAME, name, file_paths[0], file_paths[1], hindi_name, tamil_name)
+        insert_employee(DB_NAME, name, file_paths[0], file_paths[1],designation,hindi_name, tamil_name)
         message = f"Files uploaded successfully for '{name}' ✅"
-
+        initialize_face_recognition()
     except Exception as e:
         if not message:
             message = f"Error: {str(e)}"
@@ -107,7 +112,7 @@ async def view_user(request: Request, id: int):
     if not employee:
         raise HTTPException(status_code=404, detail=f"User with ID {id} not found")
     
-    emp_id, name, photo_path, photo_path2,hindi_name ,tamil_name = employee
+    emp_id, name, photo_path, photo_path2,hindi_name ,tamil_name,designation = employee
         
     return templates.TemplateResponse(
         "showUser-c.html", 
@@ -118,7 +123,8 @@ async def view_user(request: Request, id: int):
             "photopath": photo_path.replace("uploads/", ""),
             "photopath2": photo_path2.replace("uploads/", ""),
             "hindi_name":hindi_name,
-            "tamil_name":tamil_name
+            "tamil_name":tamil_name,
+            "designation":designation
         }
     )
 
@@ -133,15 +139,17 @@ async def view_all_user(request: Request):
         photo_paths2 = []
         hindi_names=[]
         tamil_names=[]
+        designations=[]
         
         for employee in employees:
-            emp_id, name, photo_path, photo_path2,hindi_name,tamil_name = employee
+            emp_id, name, photo_path, photo_path2,hindi_name,tamil_name,designation = employee
             ids.append(emp_id)
             names.append(name)
             photo_paths.append(photo_path.replace("uploads/", ""))
             photo_paths2.append(photo_path2.replace("uploads/", ""))
             hindi_names.append(hindi_name)
             tamil_names.append(tamil_name)
+            designations.append(designation)
 
             
         return templates.TemplateResponse(
@@ -154,7 +162,8 @@ async def view_all_user(request: Request):
                 "photopath2_list": photo_paths2,
                 "zip": zip,
                 "hindi_name_list":hindi_names,
-                "tamil_name_list":tamil_names
+                "tamil_name_list":tamil_names,
+                "designation_list":designations
             }
         )
     except Exception as e:
@@ -178,7 +187,7 @@ async def delete_users(request: Request, id: int):
     try:
         employee = get_employee(DB_NAME, id)
         if employee:
-            _, _, photo_path, photo_path2,_,_ = employee
+            _, _, photo_path, photo_path2,_,_,_= employee
             for path in [photo_path, photo_path2]:
                 if os.path.exists(path):
                     os.remove(path)
@@ -186,7 +195,8 @@ async def delete_users(request: Request, id: int):
             delete_employee(DB_NAME, id)
         else:
             raise HTTPException(status_code=404, detail=f"User with ID {id} not found")
-        
+        initialize_face_recognition()
+
         return RedirectResponse(url="/viewAllUser/", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}")
@@ -197,12 +207,14 @@ async def delete_all_users(request: Request):
         employees = get_all_employees(DB_NAME)
         if employees:  # Check if employees is not None and not empty
             for employee in employees:
-                _, _, photo_path, photo_path2,_,_ = employee
+                _, _, photo_path, photo_path2,_,_,_ = employee
                 for path in [photo_path, photo_path2]:
                     if os.path.exists(path):
                         os.remove(path)
         
         delete_all_employees(DB_NAME)
+        initialize_face_recognition()
+
         return RedirectResponse(url="/viewAllUser/", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting all users: {str(e)}")
@@ -220,10 +232,10 @@ async def get_detected_faces():
     # Get face detection data - detected_faces is a dict with numeric keys
     for face_idx, face_data in detected_faces.items():
         detected_name = face_data["name"]
-        conn = sqlite3.connect("user_db.db")
+        conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, name, photo_path, photo_path2, hindi_name, tamil_name FROM employees WHERE name = ?",
+            "SELECT id, name, photo_path, photo_path2, hindi_name, tamil_name,designations FROM employees WHERE name = ?",
             (detected_name,)
         )
         row = cursor.fetchone()
@@ -235,6 +247,7 @@ async def get_detected_faces():
                 "name": row[1],
                 "hindi_name": row[4] if row[4] else "-",
                 "tamil_name": row[5] if row[5] else "-",
+                "designations": row[6] if row[6] else "-",
                 "similarity": face_data["similarity"]
             }
     

@@ -81,6 +81,7 @@
         <div>
           <p>Hindi Name: <strong id="verifiedHindiName">-</strong></p>
           <p>Tamil Name: <strong id="verifiedTamilName">-</strong></p>
+          <p>Designation: <strong id="verifiedDesignation">-</strong></p>
         </div>
       </div>
 
@@ -141,6 +142,8 @@
                 firstFace.hindi_name || "-";
               document.getElementById("verifiedTamilName").textContent =
                 firstFace.tamil_name || "-";
+              document.getElementById("verifiedDesignation").textContent =
+                firstFace.designations || "-";
               container.style.display = "block";
             } else {
               container.style.display = "none";
