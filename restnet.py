@@ -11,9 +11,9 @@ import time
 
 stream_active = False
 vs = None
-DB_NAME = "user_db6.db"
+DB_NAME = "test_db.db"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-detected_faces = {}  
+detected_faces = {}         
 reference_embeddings = None
 reference_names = None
 mtcnn=None

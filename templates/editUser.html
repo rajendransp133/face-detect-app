@@ -1,0 +1,208 @@
+<!-- templates/editUser.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Edit Employee</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+      }
+      form {
+        margin-top: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+      }
+      input[type="text"],
+      input[type="file"] {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .file-upload {
+        margin-bottom: 20px;
+      }
+      .note {
+        color: #666;
+        font-size: 0.9em;
+        margin-top: 5px;
+      }
+      .current-photos {
+        display: flex;
+        margin-bottom: 20px;
+        gap: 20px;
+      }
+      .photo-container {
+        width: 48%;
+      }
+      .photo-container img {
+        width: 100%;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+      }
+      .buttons {
+        display: flex;
+        justify-content: space-between;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button.cancel {
+        background-color: #f44336;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+      .message {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Edit Employee</h1>
+
+      {% if message %}
+      <div
+        class="message {% if 'successfully' in message %}success{% else %}error{% endif %}"
+      >
+        {{ message }}
+      </div>
+      {% endif %}
+
+      <div class="current-photos">
+        <div class="photo-container">
+          <h3>Current Photo 1</h3>
+          <img src="/uploads/{{ name }}//1.jpeg" alt="Current Photo 1" />
+        </div>
+        <div class="photo-container">
+          <h3>Current Photo 2</h3>
+          <img src="/uploads/{{ name }}//2.jpeg" alt="Current Photo 2" />
+        </div>
+      </div>
+
+      <!-- Special form setup to support PUT method through JavaScript -->
+      <form id="editForm" enctype="multipart/form-data">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" value="{{ name }}" required />
+
+        <label for="hindi_name">Hindi Name:</label>
+        <input
+          type="text"
+          id="hindi_name"
+          name="hindi_name"
+          value="{{ hindi_name or '' }}"
+        />
+
+        <label for="tamil_name">Tamil Name:</label>
+        <input
+          type="text"
+          id="tamil_name"
+          name="tamil_name"
+          value="{{ tamil_name or '' }}"
+        />
+
+        <label for="designation">Designation:</label>
+        <input
+          type="text"
+          id="designation"
+          name="designation"
+          value="{{ designation }}"
+          required
+        />
+
+        <div class="file-upload">
+          <label for="file1">New Photo 1 (optional):</label>
+          <input type="file" id="file1" name="files" accept="image/*" />
+          <p class="note">Leave empty to keep current photo</p>
+        </div>
+
+        <div class="file-upload">
+          <label for="file2">New Photo 2 (optional):</label>
+          <input type="file" id="file2" name="files" accept="image/*" />
+          <p class="note">Leave empty to keep current photo</p>
+        </div>
+
+        <div class="buttons">
+          <button type="button" onclick="submitForm()">Update Employee</button>
+          <button
+            type="button"
+            class="cancel"
+            onclick="window.location.href='/viewUser/{{ id }}'"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+
+      <script>
+        function submitForm() {
+          const form = document.getElementById("editForm");
+          const formData = new FormData(form);
+
+          // Use the Fetch API to send a PUT request
+          fetch("/editUser/{{ id }}", {
+            method: "PUT",
+            body: formData,
+          })
+            .then((response) => {
+              if (response.redirected) {
+                window.location.href = response.url;
+              } else {
+                return response.text();
+              }
+            })
+            .then((html) => {
+              if (html) {
+                document.open();
+                document.write(html);
+                document.close();
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              alert("An error occurred while updating the employee.");
+            });
+        }
+      </script>
+    </div>
+  </body>
+</html>

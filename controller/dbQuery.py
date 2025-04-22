@@ -107,3 +107,34 @@ def delete_all_employees(db_name):
     finally:
         if conn:
             conn.close()
+
+
+
+def update_employee(db_name, id, name, photo_path, photo_path2, designations, hindi_name=None, tamil_name=None):
+    conn = None
+    
+    try:
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+        
+        update_query = """UPDATE employees
+                          SET name = ?,
+                              photo_path = ?,
+                              photo_path2 = ?,
+                              hindi_name = ?,
+                              tamil_name = ?,
+                              designations = ?
+                          WHERE id = ?"""
+        
+        data_tuple = (name, photo_path, photo_path2, hindi_name, tamil_name, designations, id)
+        cursor.execute(update_query, data_tuple)
+        conn.commit()
+        cursor.close()
+        return True
+
+    except sqlite3.Error as error:
+        print(f"Failed to update employee data (ID: {id}):", error)
+        raise
+    finally:
+        if conn:
+            conn.close()
